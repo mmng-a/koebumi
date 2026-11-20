@@ -225,12 +225,21 @@ enum TextInserter {
     // MARK: - 内部
 
     static func postKey(_ key: UInt16, flags: CGEventFlags) {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { continue }
-            event.flags = flags
-            event.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
+        // keyDown の後では合成した修飾キーも含まれるため、送信前に退避する。
+        let releaseFlags = CGEventSource.flagsState(.hidSystemState)
+        for event in keyEvents(key, flags: flags, releaseFlags: releaseFlags) {
             event.post(tap: .cghidEventTap)
+        }
+    }
+
+    /// 押下・解放のイベントを作る。解放時は送信前の修飾キー状態に戻す。
+    static func keyEvents(_ key: UInt16, flags: CGEventFlags, releaseFlags: CGEventFlags) -> [CGEvent] {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        return [true, false].compactMap { down in
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { return nil }
+            event.flags = down ? flags : releaseFlags
+            event.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
+            return event
         }
     }
 
