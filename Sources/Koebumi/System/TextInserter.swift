@@ -233,14 +233,18 @@ enum TextInserter {
 
     static func keyEvents(_ key: UInt16, flags: CGEventFlags, releaseFlags: CGEventFlags) -> [CGEvent] {
         let source = CGEventSource(stateID: .combinedSessionState)
-        var events: [CGEvent] = []
-        for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { continue }
-            event.flags = down ? flags : releaseFlags
-            event.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
-            events.append(event)
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
+        else {
+            return []
         }
-        return events
+
+        down.flags = flags
+        up.flags = releaseFlags
+        down.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
+        up.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
+
+        return [down, up]
     }
 
     private static func snapshot(_ pb: NSPasteboard) -> [[NSPasteboard.PasteboardType: Data]] {
